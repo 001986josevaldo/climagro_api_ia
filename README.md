@@ -21,7 +21,7 @@ O sistema calcula o **Balanço Hídrico Diário** via método Penman-Monteith (F
 - **Linguagem:** Python 3.10+
 - **Framework Web:** FastAPI & Uvicorn
 - **Agendador:** APScheduler
-- **LLM & IA:** LangChain Core, LangChain Groq (`llama-3.1-70b-versatile`)
+- **LLM & IA:** LangChain Core, LangChain Groq (`openai/gpt-oss-20b`)
 - **Integração de Dados:** API de Estações Automáticas do INMET
 - **Implantação:** Docker / Docker Compose
 

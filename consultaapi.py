@@ -46,7 +46,7 @@ else:
         dados = resposta.json()
 
         # 3. Filtrar a medição por horario
-        horario_alvo = "2330"
+        horario_alvo = "1600"
         # Remove os dois-pontos e garante 4 dígitos (ex: "08:00" -> "0800")
         horario_formatado = horario_alvo.replace(":", "").zfill(4)
         registro_horario = None

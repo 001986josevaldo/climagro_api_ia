@@ -35,6 +35,8 @@ def atualizar_relatorios():
         proc_boletim = BoletimClimatologicoINMET(token=INMET_TOKEN, cd_estacao="A025")
         dados_boletim = proc_boletim.gerar_boletim_24h(data_ref=hoje, hora_ref=hora_ref)
         
+        #print(f"[CRON] Boletim climatológico obtido: {dados_boletim}")
+        
         bot_boletim = BoletimClimatologicoBot()
         analise_boletim = bot_boletim.analisar_boletim(dados_boletim=dados_boletim)
 
@@ -46,6 +48,8 @@ def atualizar_relatorios():
         # 2. Processar Balanço Hídrico
         proc_balanco = BalancoHidricoINMET(token=INMET_TOKEN, cd_estacao="A025")
         dados_balanco = proc_balanco.calcular_balanco_hidrico_24h(data_ref=hoje, hora_ref=hora_ref)
+
+        #print(f"[CRON] Balanço hídrico obtido: {dados_balanco}")
 
         bot_balanco = AgroAIBot()
         pergunta = "analise diaria do balanço hídrico simplificado."

@@ -13,6 +13,17 @@ class BoletimClimatologicoINMET:
         """Padroniza horários para o formato '0800'."""
         return hora_str.replace(":", "").zfill(4)
 
+    @staticmethod
+    def _para_float(valor):
+        """Converte um valor para float; retorna None para valores ausentes ou inválidos."""
+        if valor is None or str(valor).strip() == "":
+            return None
+
+        try:
+            return float(valor)
+        except (TypeError, ValueError):
+            return None
+
     def buscar_dados_24h(
         self, data_ref: date, hora_ref: str = "2330"
     ) -> list[dict]:
@@ -68,83 +79,79 @@ class BoletimClimatologicoINMET:
         if not dados_24h:
             raise ValueError("Nenhum dado encontrado para o período.")
 
-        total_leituras = len(dados_24h)
-
         # 1. Temperatura (°C)
+        # TEM_MIN/TEM_MAX podem vir vazios nas leituras horárias.
+        # Nesse caso, o mínimo e o máximo devem ser calculados a partir de TEM_INS,
+        # sem inserir 0 artificialmente na lista.
         temps = [
-            float(r.get("TEM_INS"))
+            valor
             for r in dados_24h
-            if r.get("TEM_INS") is not None
-        ]
-        temp_max_lista = [
-            float(r.get("TEM_MAX") or r.get("TEM_INS") or 0) for r in dados_24h
-        ]
-        temp_min_lista = [
-            float(r.get("TEM_MIN") or r.get("TEM_INS") or 0) for r in dados_24h
+            if (valor := self._para_float(r.get("TEM_INS"))) is not None
         ]
 
-        temp_media = sum(temps) / len(temps) if temps else 0.0
-        temp_max = max(temp_max_lista) if temp_max_lista else 0.0
-        temp_min = min(temp_min_lista) if temp_min_lista else 0.0
+        temp_media = sum(temps) / len(temps) if temps else None
+        temp_max = max(temps) if temps else None
+        temp_min = min(temps) if temps else None
 
         # 2. Umidade Relativa (%)
         umidades = [
-            float(r.get("UMD_INS"))
+            valor
             for r in dados_24h
-            if r.get("UMD_INS") is not None
-        ]
-        umid_max_lista = [
-            float(r.get("UMD_MAX") or r.get("UMD_INS") or 0) for r in dados_24h
-        ]
-        umid_min_lista = [
-            float(r.get("UMD_MIN") or r.get("UMD_INS") or 0) for r in dados_24h
+            if (valor := self._para_float(r.get("UMD_INS"))) is not None
         ]
 
-        umidade_media = sum(umidades) / len(umidades) if umidades else 0.0
-        umidade_max = max(umid_max_lista) if umid_max_lista else 0.0
-        umidade_min = min(umid_min_lista) if umid_min_lista else 0.0
+        umidade_media = sum(umidades) / len(umidades) if umidades else None
+        umidade_max = max(umidades) if umidades else None
+        umidade_min = min(umidades) if umidades else None
 
         # 3. Chuva (Acumulado total em mm)
-        chuva_total = sum(float(r.get("CHUVA") or 0) for r in dados_24h)
+        chuvas = [
+            valor
+            for r in dados_24h
+            if (valor := self._para_float(r.get("CHUVA"))) is not None
+        ]
+        chuva_total = sum(chuvas) if chuvas else 0.0
 
         # 4. Ventos (m/s)
         ventos = [
-            float(r.get("VEN_VEL"))
+            valor
             for r in dados_24h
-            if r.get("VEN_VEL") is not None
+            if (valor := self._para_float(r.get("VEN_VEL"))) is not None
         ]
         rajadas = [
-            float(r.get("VEN_RAJ") or 0)
+            valor
             for r in dados_24h
-            if r.get("VEN_RAJ") is not None
+            if (valor := self._para_float(r.get("VEN_RAJ"))) is not None
         ]
 
-        vento_medio = sum(ventos) / len(ventos) if ventos else 0.0
-        vento_rajada_max = max(rajadas) if rajadas else 0.0
+        vento_medio = sum(ventos) / len(ventos) if ventos else None
+        vento_rajada_max = max(rajadas) if rajadas else None
 
         # 5. Radiação Global (Soma kJ/m² e conversão para MJ/m²)
-        radiacao_total_mj = (
-            sum(
-                float(r.get("RAD_GLO") or 0)
-                for r in dados_24h
-                if float(r.get("RAD_GLO") or 0) > 0
-            )
-            / 1000.0
-        )
+        radiacoes = [
+            valor
+            for r in dados_24h
+            if (valor := self._para_float(r.get("RAD_GLO"))) is not None
+            and valor > 0
+        ]
+        radiacao_total_mj = sum(radiacoes) / 1000.0 if radiacoes else 0.0
+
+        def arredondar(valor):
+            return round(valor, 1) if valor is not None else None
 
         return {
             "estacao": dados_24h[0].get("DC_NOME", "N/A"),
             "codigo_estacao": self.cd_estacao,
             "data_referencia": data_ref.isoformat(),
             "hora_referencia": self._formatar_horario(hora_ref),
-            "temp_max": round(temp_max, 1),
-            "temp_min": round(temp_min, 1),
-            "temp_media": round(temp_media, 1),
-            "umidade_max": round(umidade_max, 1),
-            "umidade_min": round(umidade_min, 1),
-            "umidade_media": round(umidade_media, 1),
+            "temp_max": arredondar(temp_max),
+            "temp_min": arredondar(temp_min),
+            "temp_media": arredondar(temp_media),
+            "umidade_max": arredondar(umidade_max),
+            "umidade_min": arredondar(umidade_min),
+            "umidade_media": arredondar(umidade_media),
             "chuva_mm": round(chuva_total, 1),
-            "vento_vel": round(vento_medio, 1),
-            "vento_rajada": round(vento_rajada_max, 1),
+            "vento_vel": arredondar(vento_medio),
+            "vento_rajada": arredondar(vento_rajada_max),
             "radiacao_mj": round(radiacao_total_mj, 1),
         }

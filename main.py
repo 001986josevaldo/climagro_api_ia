@@ -1,6 +1,6 @@
 import os
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -25,15 +25,27 @@ CACHE_DADOS = {
 
 
 def atualizar_relatorios():
-    """Executa as requisições do INMET e as análises das IAs, salvando no cache."""
-    print("\n[CRON] Iniciando atualização diária dos relatórios...")
-    hoje = date.today()
-    hora_ref = "23:30"  # Às 23:30, o horário de referência de 23:30 é o ideal
+    """Executa o fluxo completo 1 vez ao dia centralizando a referência temporal."""
+    
+    # 1. CENTRALIZAÇÃO DA REGRA DE TEMPO (Único lugar no projeto todo)
+    agora = datetime.now()
+    hoje = agora.date()
+    
+    #hoje = date(2026, 11, 9)
+    # Como a API do INMET registra horas cheias (00, 01 ... 23),
+    # se o script roda às 23:30, o horário de referência da medição é "23:00"
+    print(f"[CRON] Horário de referência para coleta de dados: {agora.strftime('%Y-%m-%d %H:%M:%S')}")
+    hora_referencia_inmet = f"{agora.hour:02d}:00" 
+
+    print(f"\n[CRON] Executando rotina diária em {agora.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"[CRON] Buscando janela de 24h até: {hoje} às {hora_referencia_inmet}")
 
     try:
         # 1. Processar Boletim Climatológico
         proc_boletim = BoletimClimatologicoINMET(token=INMET_TOKEN, cd_estacao="A025")
-        dados_boletim = proc_boletim.gerar_boletim_24h(data_ref=hoje, hora_ref=hora_ref)
+        dados_boletim = proc_boletim.gerar_boletim_24h(
+            data_ref=hoje,
+            )
         
         #print(f"[CRON] Boletim climatológico obtido: {dados_boletim}")
         
@@ -47,7 +59,9 @@ def atualizar_relatorios():
 
         # 2. Processar Balanço Hídrico
         proc_balanco = BalancoHidricoINMET(token=INMET_TOKEN, cd_estacao="A025")
-        dados_balanco = proc_balanco.calcular_balanco_hidrico_24h(data_ref=hoje, hora_ref=hora_ref)
+        dados_balanco = proc_balanco.calcular_balanco_hidrico_24h(
+            data_ref=hoje, 
+            )
 
         #print(f"[CRON] Balanço hídrico obtido: {dados_balanco}")
 

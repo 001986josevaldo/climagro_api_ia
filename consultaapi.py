@@ -31,8 +31,8 @@ if not estacao_alvo:
     print("Estação de Rio Verde - GO não encontrada.")
 else:
     codigo_estacao = estacao_alvo["CD_ESTACAO"]
-    hoje = date.today().isoformat()  # YYYY-MM-DD
-
+    #hoje = date.today().isoformat()  # YYYY-MM-DD
+    hoje = "2026-11-10"
     url_dados = (
         f"https://apitempo.inmet.gov.br/token/"
         f"estacao/{hoje}/{hoje}/{codigo_estacao}/{INMET_TOKEN}"

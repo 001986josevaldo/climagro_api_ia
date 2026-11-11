@@ -24,12 +24,8 @@ class BoletimClimatologicoINMET:
         except (TypeError, ValueError):
             return None
 
-    def buscar_dados_24h(
-        self, data_ref: date, hora_ref: str = "2330"
-    ) -> list[dict]:
-        """Busca as 24 leituras horárias que encerram na data/hora informadas."""
-        hora_alvo = self._formatar_horario(hora_ref)
-
+    def buscar_dados_24h(self, data_ref: date) -> list[dict]:
+        """Busca as últimas 24 leituras horárias disponíveis até a data informada."""
         data_inicio = (data_ref - timedelta(days=1)).isoformat()
         data_fim = data_ref.isoformat()
 
@@ -39,9 +35,10 @@ class BoletimClimatologicoINMET:
         response.raise_for_status()
         registros = response.json()
 
-        if not isinstance(registros, list):
-            raise ValueError("Resposta inválida da API do INMET.")
+        if not isinstance(registros, list) or not registros:
+            raise ValueError("Resposta inválida ou sem dados retornados pela API do INMET.")
 
+        # Ordena cronologicamente por Data (DT_MEDICAO) e Hora (HR_MEDICAO)
         registros_ordenados = sorted(
             registros,
             key=lambda x: (
@@ -50,34 +47,25 @@ class BoletimClimatologicoINMET:
             ),
         )
 
-        indice_fim = None
-        for i, reg in enumerate(registros_ordenados):
-            dt = reg.get("DT_MEDICAO")
-            hr = str(reg.get("HR_MEDICAO", "")).zfill(4)
-
-            if dt == data_fim and hr == hora_alvo:
-                indice_fim = i
-                break
-
-        if indice_fim is None:
-            registros_24h = registros_ordenados[-24:]
-        else:
-            inicio = max(0, indice_fim - 23)
-            registros_24h = registros_ordenados[inicio : indice_fim + 1]
-
-        return registros_24h
+        # Retorna as últimas 24 medições acumuladas mais recentes até o momento
+        return registros_ordenados[-24:]
 
     def gerar_boletim_24h(
-        self, data_ref: date = None, hora_ref: str = "0800"
-    ) -> dict:
+        self, data_ref: date = None) -> dict:
         """Calcula agregados (médias, somas, máximos e mínimos) das últimas 24h."""
         if data_ref is None:
             data_ref = date.today()
 
-        dados_24h = self.buscar_dados_24h(data_ref, hora_ref)
+        dados_24h = self.buscar_dados_24h(data_ref)
 
         if not dados_24h:
             raise ValueError("Nenhum dado encontrado para o período.")
+
+        # Extrai data e hora da última leitura real obtida (ex: "2300" -> "23:00")
+        hr_raw = str(dados_24h[-1].get("HR_MEDICAO", "0000")).zfill(4)
+        hora_referencia = f"{hr_raw[:2]}:{hr_raw[2:]}"
+        data_referencia_leitura = dados_24h[-1].get("DT_MEDICAO", data_ref.isoformat())
+        
 
         # 1. Temperatura (°C)
         # TEM_MIN/TEM_MAX podem vir vazios nas leituras horárias.
@@ -142,8 +130,8 @@ class BoletimClimatologicoINMET:
         return {
             "estacao": dados_24h[0].get("DC_NOME", "N/A"),
             "codigo_estacao": self.cd_estacao,
-            "data_referencia": data_ref.isoformat(),
-            "hora_referencia": self._formatar_horario(hora_ref),
+            "data_referencia": data_referencia_leitura,
+            "hora_referencia": hora_referencia,
             "temp_max": arredondar(temp_max),
             "temp_min": arredondar(temp_min),
             "temp_media": arredondar(temp_media),
